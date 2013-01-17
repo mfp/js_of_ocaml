@@ -79,6 +79,9 @@ module Optdef : OPT with type 'a t = 'a optdef
 type +'a t
   (** Type of Javascript objects.  The type parameter is used to
       specify more precisely an object.  *)
+type +'a opt_t = < __optional__ : 'a> t
+  (** Type of Javascript objects with optional methods and properties. *)
+
 type +'a meth
   (** Type used to specify method types:
       a Javascript object

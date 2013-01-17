@@ -92,8 +92,8 @@ let outside_color = Js.string (*"#3d2606"*) "#1e1303"
 let outside_color = Js.string (*"#0c1a0d"*) "#070718"
 *)
 
-let option var =
-  Js.Optdef.get var (fun () -> Js.Unsafe.coerce (jsnew Js.array_empty ()))
+let option v =
+  Js.Optdef.get v (fun () -> Js.Unsafe.coerce (jsnew Js.array_empty ()))
 
 class type style = object
   method border : float Js.optdef Js.readonly_prop
@@ -829,7 +829,7 @@ let compute_text_nodes node_names nodes =
   Html.document##title <- Js.string
     (try Hashtbl.find names "<TITLE>" with Not_found -> "");
   for i = 0 to Array.length nodes - 1 do
-    match nodes.(i) with 
+    match nodes.(i) with
       (neigh, `Txt (is_root, _, info)) ->
         let canvas =
           try

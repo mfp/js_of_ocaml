@@ -19,6 +19,7 @@
  *)
 
 type +'a t
+type +'a opt_t = < __optional__ : 'a > t
 
 module Unsafe = struct
   external variable : string -> 'a = "caml_js_var"

@@ -1,6 +1,7 @@
 (* Js_of_ocaml library
  * http://www.ocsigen.org/js_of_ocaml/
  * Copyright (C) 2010 Jérôme Vouillon
+ *               2011 Mauricio Fernandez
  * Laboratoire PPS - CNRS Université Paris Diderot
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,7 +27,7 @@ open Camlp4
 
 module Id : Sig.Id = struct
   let name = "Javascript"
-  let version = "1.0"
+  let version = "1.1"
 end
 
 module Make (Syntax : Sig.Camlp4Syntax) = struct
@@ -135,7 +136,157 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
               Js.Unsafe.new_obj $lid:x$ $args$ >>
       <:ctyp< $obj_type$ >>
 
+  let jsobject _loc vars_and_methods =
+    let random_ty () = <:ctyp< ' $lid:random_var ()$ >> in
+    let obj_lid = random_var () in
+    let constr_lid = random_var () in
+    let self_ty = random_ty () in
+    let module S = Set.Make(String) in
+
+    (* signal error if there are duplicated vars/methods *)
+    let _ =
+      List.fold_left
+        (fun (vars, methods) -> function
+             `Var (n, e, _) ->
+               if S.mem n vars then
+                 Loc.raise (Ast.loc_of_expr e)
+                   (Failure (Printf.sprintf "jsobject var %s is repeated" n));
+               (S.add n vars, methods)
+           | `Meth (n, _, e, _) ->
+               if S.mem n methods then
+                 Loc.raise (Ast.loc_of_expr e)
+                   (Failure (Printf.sprintf "jsobject method %s is repeated" n));
+               (vars, S.add n methods))
+        (S.empty, S.empty)
+        vars_and_methods in
+
+    let vars_and_methods =
+      List.map
+        (function
+             `Var (n, e, is_opt) -> `Var (n, e, random_ty (), is_opt)
+           | `Meth (n, params, e, is_opt) ->
+               (* we assign a random var name to () params *)
+               let params =
+                 List.map
+                   (function
+                        `Id x -> (x, random_ty ())
+                      | `Unit -> (random_var (), <:ctyp< unit >>))
+                   params
+               in `Meth (n, params, e, random_ty (), is_opt))
+        vars_and_methods in
+
+    let meth_ty params ty =
+      List.fold_right
+        (fun x ty -> <:ctyp< $x$ -> $ty$ >>)
+        (List.map snd params)
+        ty in
+
+    let set_field = function
+        `Var (n, e, ty, _) ->
+          let _loc = Ast.loc_of_expr e in
+            <:expr< Js.Unsafe.set $lid:obj_lid$ (Js.string $str:n$) ($e$ : $ty$) >>
+      | `Meth (n, params, e, ty, _) ->
+          (* the fst param is self, which we don't want to appear in the type *)
+          let params = match params with _ :: tl | tl -> tl in
+            <:expr<
+              Js.Unsafe.set $lid:obj_lid$ (Js.string $str:n$)
+                (Js.wrap_meth_callback $lid:n$ :
+                   Js.meth_callback
+                     $self_ty$
+                     $meth_ty params ty$) >> in
+
+    let assignments =
+      List.fold_right
+        (fun x e -> <:expr< do { $set_field x$; $e$; } >>)
+        vars_and_methods <:expr< () >> in
+
+    let meth_def n params body e =
+      let rec meth_fun is_self = function
+          [] -> body
+        | (param, ty) :: tl ->
+            let ty = if is_self then self_ty else ty in
+              <:expr< fun ($lid:param$ : $ty$) -> $meth_fun false tl$ >>
+      in
+        let _loc = Ast.loc_of_expr body in
+          <:expr< let $lid:n$ = $meth_fun true params$ in $e$ >> in
+
+    let meth_defs_and_field_assignments =
+      List.fold_right
+        (fun field e -> match field with
+             `Var _ -> e
+           | `Meth (n, params, body, _, _) -> meth_def n params body e)
+        vars_and_methods
+        assignments in
+
+    let obj_field_meth_ctyp = function
+        `Var (n, _, vty, _) -> <:ctyp< $lid:n$ : Js.prop $vty$ >>
+     | `Meth (n, params, _, mty, _) ->
+         (* the fst param is self *)
+         let params = match params with _ :: tl | tl -> tl in
+         let wrapped_mty = <:ctyp< Js.meth $mty$ >> in
+           <:ctyp< $lid:n$ : $meth_ty params wrapped_mty$ >> in
+
+    let make_obj_ty vars_and_methods row_var_flag ty =
+      match vars_and_methods with
+          [] -> <:ctyp< < $ty$ $..:row_var_flag$ > >>
+        | l ->
+            let tyl =
+              List.fold_right
+                (fun x ty ->
+                   let t = obj_field_meth_ctyp x in
+                     <:ctyp< $t$; $ty$ >>)
+                (List.rev l)
+                ty
+            in <:ctyp< < $tyl$ $..:row_var_flag$ > >> in
+
+    let optional_part_ty =
+      make_obj_ty vars_and_methods <:row_var_flag<..>> <:ctyp< >> in
+    let obj_ty =
+      make_obj_ty
+        (* we deliberately leave optional properties/methods out
+         * so that we don't need to cast the object manually *)
+        (List.filter
+           (function `Var (_, _, _, is_opt) | `Meth (_, _, _, _, is_opt) -> not is_opt)
+           vars_and_methods)
+        <:row_var_flag<>>
+        (<:ctyp< __optional__ : $optional_part_ty$ >>)
+    in
+      <:expr<
+        let ($lid:obj_lid$ : Js.t $obj_ty$ as $self_ty$) =
+          let $lid:constr_lid$ : Js.constr $self_ty$ = Js.Unsafe.variable "Object" in
+          let $lid:obj_lid$ = Js.Unsafe.new_obj $lid:constr_lid$ [||] in
+            do {
+              $meth_defs_and_field_assignments$;
+              $lid:obj_lid$
+            }
+        in $lid:obj_lid$
+       >>
+
   let jsmeth = Gram.Entry.mk "jsmeth"
+  let jsobj_var_and_methods = Gram.Entry.mk "jsobj_var_and_methods"
+  let jsobj_var = Gram.Entry.mk "jsobj_var"
+  let jsobj_meth_param = Gram.Entry.mk "jsobj_meth_param"
+
+  let method_declaration _loc name params e ~is_opt =
+    (* we expand   method foo = x   to  method foo rand_var_for_self () x
+     * and   method foo self = x    to  method foo self () = x
+     *)
+    let params = match params with
+        [] -> [`Id (random_var ()); `Unit]
+      | [ `Id x ] -> [`Id x; `Unit]
+      | `Unit :: _ ->
+          Loc.raise _loc
+            (Failure
+               ("First param of method must be a self variable, \
+                 it cannot be unit"))
+      | l -> l
+    in `Meth (name, params, e, is_opt)
+
+  let set_optional_flag =
+    List.map
+      (function
+           `Var (i, e, _) -> `Var (i, e, true)
+         | `Meth (n, p, e, _) -> `Meth (n, p, e, true))
 
   EXTEND Gram
     jsmeth: [["##"; lab = label -> (_loc, lab) ]];
@@ -162,7 +313,36 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
     [[ "jsnew"; e = expr LEVEL "label"; "("; ")" ->
          new_object _loc e []
      | "jsnew"; e = expr LEVEL "label"; "("; l = comma_expr; ")" ->
-         new_object _loc e (parse_comma_list l) ]];
+         new_object _loc e (parse_comma_list l)
+     | "jsnew"; "object"; l = LIST0 jsobj_var_and_methods; "end" -> jsobject _loc l
+     | "jsnew"; "virtual"; "object"; l = LIST0 jsobj_var_and_methods; "end" ->
+         (* a "virtual" object is one where all the methods and vars are
+          * optional *)
+         jsobject _loc (set_optional_flag l)
+     | "{:"; vars = LIST0 jsobj_var SEP ";"; ":}" -> jsobject _loc vars
+     | "virtual"; "{:"; vars = LIST0 jsobj_var SEP ";"; ":}" ->
+         jsobject _loc (set_optional_flag vars)
+    ]];
+    jsobj_var_and_methods:
+    [[
+      "var"; x = jsobj_var -> x
+     | "method"; i = a_LIDENT; params = LIST0 jsobj_meth_param; "="; e = expr ->
+         method_declaration _loc i params e ~is_opt:false
+     | "method"; "virtual"; i = a_LIDENT; params = LIST0 jsobj_meth_param; "="; e = expr ->
+         method_declaration _loc i params e ~is_opt:true
+
+    ]];
+    jsobj_var:
+    [[ i = a_LIDENT; "="; e = expr LEVEL "top" -> `Var (i, e, false)
+     | "virtual"; i = a_LIDENT; "="; e = expr LEVEL "top" -> `Var (i, e, true)
+     | i = a_LIDENT -> `Var (i, <:expr< $lid:i$ >>, false)
+     | "virtual"; i = a_LIDENT -> `Var (i, <:expr< $lid:i$ >>, true)
+    ]];
+    jsobj_meth_param:
+    [[
+       i = a_LIDENT -> `Id i
+     | "("; ")" -> `Unit
+    ]];
     END
 
 (*XXX n-ary methods
