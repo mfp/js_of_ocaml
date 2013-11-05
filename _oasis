@@ -1,0 +1,126 @@
+OASISFormat: 0.3
+Name:        js_of_ocaml
+Version:     1.3.2
+LicenseFile: LICENSE
+Synopsis:    Js_of_ocaml is a compiler from OCaml bytecode to Javascript
+Authors:     Jérôme Vouillon
+Homepage:    http://ocsigen.org/js_of_ocaml
+BuildTools:  ocamlbuild
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.3), DevFiles (0.3)
+XDevFilesEnableMakefile: false
+
+PreBuildCommand: ocamlbuild runtime.otarget
+PostInstallCommand: install _build/runtime/*.js `ocamlfind query js_of_ocaml`
+
+Flag tools
+  Description: enable tools
+  Default: true
+
+Flag deriving
+  Description: deriving
+  Default$: true
+
+Library js_of_ocaml
+  Path:       lib
+  Modules:    Js,Dom,Typed_array,
+              Dom_html,File,Dom_events,
+              Firebug,Lwt_js,Regexp,
+              CSS,Url,Form,XmlHttpRequest,
+              Event_arrows,Lwt_js_events,
+              Json,WebGL,WebSockets,Keycode
+  BuildDepends : lwt (>= 2.3.0)
+  CompiledObject: byte
+  CSources: js_of_ocaml_stubs.c
+  XMETARequires: lwt,js_of_ocaml.syntax
+
+Library pa_js
+  Path:       lib/syntax
+  FindlibName : syntax
+  FindlibParent: js_of_ocaml
+  Modules:    Pa_js
+  BuildDepends: camlp4
+  XMETAType: syntax
+  XMETADescription: Js_of_ocaml syntax extension
+  XMETARequires: camlp4
+
+Library deriving
+  Path:       lib/deriving_json
+  FindlibParent: js_of_ocaml
+  Build$: flag(deriving)
+  Modules:    Deriving_Json, Deriving_Json_lexer
+  XMETADescription: Runtime library for the class Json.
+
+
+Library "pa_deriving"
+  Path:       lib/syntax
+  FindlibParent: deriving
+  FindlibName : syntax
+  Build$: flag(deriving)
+  Modules:    Pa_deriving_Json
+  BuildDepends: camlp4
+  XMETAType: syntax
+  XMETADescription: Safe "IO in JSON" class for deriving.
+  XMETARequires: deriving.syntax
+
+Library "pa_deriving_tc"
+  Path:       lib/syntax
+  FindlibParent: deriving
+  FindlibName : syntax_tc
+  Build$: flag(deriving)
+  Modules:    Pa_deriving_Json
+  BuildDepends: camlp4
+  XMETAType: syntax
+  XMETADescription: Safe "IO in JSON" class for deriving.
+  XMETARequires: deriving.syntax_tc
+
+
+Library ocamlbuild_js_of_ocaml
+  Path:       ocamlbuild
+  FindlibParent: js_of_ocaml
+  Modules:    Ocamlbuild_js_of_ocaml
+  BuildDepends: ocamlbuild,str
+  XMETADescription: "Js_of_ocaml ocamlbuild plugin"
+
+Library compiler
+  Path:       compiler
+  FindlibParent: js_of_ocaml
+  Pack: true
+  BuildDepends: findlib, str
+  Modules:    Pretty_print,Reserved,Util,VarPrinter,Option,Dgraph,Code,
+              Javascript,Js_output,Js_simpl,Instr,Primitive,Subst,Pure_fun,
+              Deadcode,Flow,Specialize,Specialize_js,Eval,Inline,Tailcall,
+              Freevars,Phisimpl,Js_traverse,Js_assign,Linker,Generate,
+              Parse_bytecode,Driver,Annot_lexer,Annot_parser,Parse_info,
+              Parse_js,Js_parser,Js_lexer,Js_token
+  XMETADescription: js_of_ocaml compiler lib
+
+Document "api"
+  Title: API reference for js_of_ocaml
+  Type: ocamlbuild (0.3)
+  Build: true
+  Install: true
+  InstallDir: $htmldir/api
+  BuildTools: ocamldoc
+  Format: html
+  Index: api-index
+  XOCamlbuildPath: ./
+  XOCamlbuildLibraries:
+    js_of_ocaml,
+    js_of_ocaml.deriving,
+    js_of_ocaml.ocamlbuild_js_of_ocaml,
+    js_of_ocaml.compiler
+
+Executable js_of_ocaml
+  Path:       compiler
+  Build: true
+  MainIs:     compile.ml
+  BuildDepends: findlib, str, unix
+  CompiledObject: best
+
+Executable joo_minify
+  Path:       compiler
+  Build$:     flag(tools)
+  MainIs:     minify.ml
+  BuildDepends: findlib, str, unix
+  CompiledObject: best

@@ -1,80 +1,96 @@
-BINDIR := /usr/local/bin
+# Makefile
+# --------
+# Copyright : (c) 2012, Jeremie Dimino <jeremie@dimino.org>
+# Licence   : BSD3
+#
+# Generic Makefile for oasis project
 
-OCB= BINDIR=$(BINDIR) ocamlbuild #-classic-display
+# Set to setup.exe for the release
+SETUP := setup-dev.exe
 
-all: no_examples examples install.sh
+# Default rule
+default: build
 
+# Setup for the development version
+setup-dev.exe: _oasis setup.ml
+	grep -v '^#' setup.ml > setup_dev.ml
+	ocamlfind ocamlopt -o $@ -linkpkg -package ocamlbuild,oasis.dynrun setup_dev.ml || \
+	ocamlfind ocamlc -o $@ -linkpkg -package ocamlbuild,oasis.dynrun setup_dev.ml || true
+	rm -f setup_dev.*
 
-no_examples: check_lwt
-	$(OCB) all.otarget
+# Setup for the release
+setup.exe: setup.ml
+	ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
+	rm -f setup.cmx setup.cmi setup.o setup.obj setup.cmo
 
-.PHONY: all no_examples compiler library ocamlbuild runtime examples check_lwt doc toplevel
+build: $(SETUP) setup.data
+	./$(SETUP) -build -j 0 $(BUILDFLAGS)
 
-compiler:
-	$(OCB) compiler/compile.native
+doc: $(SETUP) setup.data build
+	./$(SETUP) -doc $(DOCFLAGS)
 
-compiler_lib:
-	$(OCB) compiler/compiler.cma compiler/compiler.cmxs compiler/compiler.cmxa
+doc-api: $(SETUP) setup.data build
+	./$(SETUP) -build lwt-api.docdir/index.html
 
-library:
-	$(OCB) lib/js_of_ocaml.cma
+test: $(SETUP) setup.data build
+	./$(SETUP) -test $(TESTFLAGS)
 
-ocamlbuild:
-	$(OCB) ocamlbuild/ocamlbuild_js_of_ocaml.cma ocamlbuild/ocamlbuild_js_of_ocaml.cmxs ocamlbuild/ocamlbuild_js_of_ocaml.cmxa
+all: $(SETUP)
+	./$(SETUP) -all $(ALLFLAGS)
 
-runtime:
-	$(OCB) runtime/runtime.js
+install: $(SETUP) setup.data
+	./$(SETUP) -install $(INSTALLFLAGS)
 
-examples:
+uninstall: $(SETUP) setup.data
+	./$(SETUP) -uninstall $(UNINSTALLFLAGS)
+
+reinstall: $(SETUP) setup.data
+	./$(SETUP) -reinstall $(REINSTALLFLAGS)
+
+clean: $(SETUP)
+	./$(SETUP) -clean $(CLEANFLAGS)
+
+distclean: $(SETUP)
+	./$(SETUP) -distclean $(DISTCLEANFLAGS)
+
+configure: $(SETUP)
+	./$(SETUP) -configure $(CONFIGUREFLAGS)
+
+setup.data: $(SETUP)
+	./$(SETUP) -configure $(CONFIGUREFLAGS)
+
+.PHONY: default build doc test all install uninstall reinstall clean distclean configure runtime examples toplevel
+
+OCB= ./$(SETUP) -build -j 0 #-classic-display
+
+examples: $(SETUP)
 	$(OCB) examples/all.otarget
 
-doc:
-	$(OCB) doc/api.docdir/index.html
-
-toplevel:
+toplevel: $(SETUP)
 	$(OCB) toplevel/toplevel_expunge.js
 
-tests: check_phantomjs
+tests: $(SETUP) check_phantomjs
 	$(OCB) tests/tests.js
 
 TESTS_LOG = $(patsubst %.ml,%.jslog,$(wildcard tests/test_*.ml))
 phantomtests: check_phantomjs
 	$(OCB) $(TESTS_LOG)
 
-LWTERROR="Js_of_ocaml requires Lwt version 2.3.0 at least.  Please upgrade."
-check_lwt:
-	@if ocamlfind query lwt -l | ocaml tools/check_version.ml 2.3.0; then \
-	  echo $(LWTERROR); exit 1; \
-	fi
 PHANTOMJSERROR="You need phantomjs in your PATH to run this"
 check_phantomjs:
 	@if which phantomjs; then echo ""; else \
 		echo $(PHANTOMJSERROR); exit 1; \
 	fi
 
-VERSION := $(shell head -n 1 VERSION)
+regenerate_oasis_files::
+	oasis setup-clean -replace-sections
+	oasis setup -setup-update dynamic
 
-install.sh:
-	$(OCB) install.sh
-
-install: install.sh
-	cd _build && sh install.sh && cd -
-
-uninstall:
-	ocamlfind remove js_of_ocaml
-	rm -f $(BINDIR)/js_of_ocaml
-	rm -f $(BINDIR)/joo_minify
-
-reinstall: uninstall install
-
-clean:
-	$(OCB) -clean
-
-realclean: clean
-	find . -name "*~" -print | xargs rm -f
+NAME=`oasis query Name 2> /dev/null`
+VERSION=`oasis query Version 2> /dev/null`
 
 dist:
-	rm -rf /tmp/js_of_ocaml-${VERSION} &&\
+	rm -rf /tmp/${NAME}-${VERSION} &&\
 	cd /tmp &&\
-	git clone https://github.com/ocsigen/js_of_ocaml.git js_of_ocaml-${VERSION} &&\
-	tar zcvf js_of_ocaml-${VERSION}.tar.gz js_of_ocaml-${VERSION} --exclude benchmarks --exclude _darcs --exclude tests
+	git clone https://github.com/ocsigen/js_of_ocaml.git ${NAME}-${VERSION} &&\
+	tar zcvf ${NAME}-${VERSION}.tar.gz ${NAME}-${VERSION} --exclude benchmarks --exclude _darcs --exclude .git --exclude tests

@@ -28,6 +28,13 @@ WebSockets
 Ocamlbuild_js_of_ocaml
 }
 
+{1 The js_of_ocaml compiler - API Reference}
+
+{!modules:
+Driver
+}
+
+
 {1 Indexes}
 
 {!indexlist}

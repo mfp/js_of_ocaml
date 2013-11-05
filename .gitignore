@@ -22,8 +22,10 @@ benchmarks/build
 benchmarks/results
 benchmarks/config
 
-*.native
-*.byte
+setup.data
+setup.log
+setup.exe
+setup-dev.exe
 
 # OCamlbuild dir
 _build
