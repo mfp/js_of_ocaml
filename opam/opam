@@ -1,8 +1,9 @@
 opam-version: "1"
 maintainer: "dev@ocsigen.org"
 build: [
-  ["%{make}%"]
-  ["%{make}%" "install" "BINDIR=%{bin}%"]
+  ["ocaml" "setup.ml" "-configure" "--prefix" "%{prefix}%"]
+  ["ocaml" "setup.ml" "-build"]
+  ["ocaml" "setup.ml" "-install"]
 ]
 remove: [
   ["ocamlfind" "remove" "js_of_ocaml"]
