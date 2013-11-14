@@ -52,7 +52,7 @@ Library deriving
   XMETADescription: Runtime library for the class Json.
 
 
-Library "pa_deriving"
+Library "pa_deriving_json"
   Path:       lib/syntax
   FindlibParent: deriving
   FindlibName : syntax
@@ -63,7 +63,7 @@ Library "pa_deriving"
   XMETADescription: Safe "IO in JSON" class for deriving.
   XMETARequires: deriving.syntax
 
-Library "pa_deriving_tc"
+Library "pa_deriving_json_tc"
   Path:       lib/syntax
   FindlibParent: deriving
   FindlibName : syntax_tc

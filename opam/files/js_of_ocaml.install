@@ -1,4 +1,6 @@
 bin: [
-  "compiler/js_of_ocaml"
-  "compiler/joo_minify"
+  "?_build/compiler/compile.byte" {"js_of_ocaml"}
+  "?_build/compiler/compile.native" {"js_of_ocaml"}
+  "?_build/compiler/minify.byte" {"joo_minify"}
+  "?_build/compiler/minify.native" {"joo_minify"}
 ]
