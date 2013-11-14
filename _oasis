@@ -92,7 +92,7 @@ Library compiler
               Deadcode,Flow,Specialize,Specialize_js,Eval,Inline,Tailcall,
               Freevars,Phisimpl,Js_traverse,Js_assign,Linker,Generate,
               Parse_bytecode,Driver,Annot_lexer,Annot_parser,Parse_info,
-              Parse_js,Js_parser,Js_lexer,Js_token
+              Parse_js,Js_parser,Js_lexer,Js_token, Source_map, Vlq64
   XMETADescription: js_of_ocaml compiler lib
 
 Document "api"
