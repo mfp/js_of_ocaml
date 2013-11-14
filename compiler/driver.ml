@@ -218,10 +218,10 @@ let coloring js =
   then Format.eprintf "Start Coloring...@.";
   Js_assign.program js
 
-let output formatter d js =
+let output formatter ?source_map d js =
   if times ()
   then Format.eprintf "Start Writing file...@.";
-  Js_output.program formatter d js
+  Js_output.program formatter ?source_map d js
 
 let pack ~standalone ?(toplevel=false)?(linkall=false) js =
   let module J = Javascript in
@@ -240,18 +240,18 @@ let pack ~standalone ?(toplevel=false)?(linkall=false) js =
   (* pack *)
   let use_strict js =
     if Option.Optim.strictmode ()
-    then J.Statement (J.Expression_statement (J.EStr ("use strict", `Utf8), None)) :: js
+    then J.Statement (J.Expression_statement (J.EStr ("use strict", `Utf8), J.N)) :: js
     else js in
 
   let js = if standalone then
       let f =
-        J.EFun ((None, [J.S {J.name = "joo_global_object"; var=None }], use_strict js),None) in
+        J.EFun (None, [J.S {J.name = "joo_global_object"; var=None }], use_strict js,J.N) in
       [J.Statement (
         J.Expression_statement
-          ((J.ECall (f, [J.EVar (J.S {J.name="this";var=None})])), None))]
+          ((J.ECall (f, [J.EVar (J.S {J.name="this";var=None})])), J.N))]
     else
-      let f = J.EFun ((None, [J.V (Code.Var.fresh ())], js), None) in
-      [J.Statement (J.Expression_statement (f, None))] in
+      let f = J.EFun (None, [J.V (Code.Var.fresh ())], js, J.N) in
+      [J.Statement (J.Expression_statement (f, J.N))] in
 
   (* post pack optim *)
   let js = (new Js_traverse.clean)#program js in
@@ -275,7 +275,7 @@ let configure formatter p =
   Code.Var.set_pretty pretty;
   p
 
-let f ?(standalone=true) ?toplevel ?linkall formatter d =
+let f ?(standalone=true) ?toplevel ?linkall ?source_map formatter d =
   configure formatter >>
   !profile >>
   deadcode' >>
@@ -288,7 +288,7 @@ let f ?(standalone=true) ?toplevel ?linkall formatter d =
   coloring >>
 
   header formatter ~standalone >>
-  output formatter d
+  output formatter ?source_map d
 
 let from_string prims s formatter =
   let (p,d) = Parse_bytecode.from_string prims s in
