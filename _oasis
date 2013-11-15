@@ -44,17 +44,18 @@ Library pa_js
   XMETADescription: Js_of_ocaml syntax extension
   XMETARequires: camlp4
 
-Library deriving
+Library deriving_json
   Path:       lib/deriving_json
   FindlibParent: js_of_ocaml
+  FindlibName: deriving
   Build$: flag(deriving)
   Modules:    Deriving_Json, Deriving_Json_lexer
   XMETADescription: Runtime library for the class Json.
 
 
-Library "pa_deriving_json"
+Library "pa_deriving_Json"
   Path:       lib/syntax
-  FindlibParent: deriving
+  FindlibParent: deriving_json
   FindlibName : syntax
   Build$: flag(deriving)
   Modules:    Pa_deriving_Json
@@ -63,9 +64,9 @@ Library "pa_deriving_json"
   XMETADescription: Safe "IO in JSON" class for deriving.
   XMETARequires: deriving.syntax
 
-Library "pa_deriving_json_tc"
+Library "pa_deriving_Json_tc"
   Path:       lib/syntax
-  FindlibParent: deriving
+  FindlibParent: deriving_json
   FindlibName : syntax_tc
   Build$: flag(deriving)
   Modules:    Pa_deriving_Json
@@ -78,6 +79,7 @@ Library "pa_deriving_json_tc"
 Library ocamlbuild_js_of_ocaml
   Path:       ocamlbuild
   FindlibParent: js_of_ocaml
+  FindlibName: ocamlbuild
   Modules:    Ocamlbuild_js_of_ocaml
   BuildDepends: ocamlbuild,str
   XMETADescription: "Js_of_ocaml ocamlbuild plugin"
@@ -108,7 +110,7 @@ Document "api"
   XOCamlbuildLibraries:
     js_of_ocaml,
     js_of_ocaml.deriving,
-    js_of_ocaml.ocamlbuild_js_of_ocaml,
+    js_of_ocaml.ocamlbuild,
     js_of_ocaml.compiler
 
 Executable js_of_ocaml
