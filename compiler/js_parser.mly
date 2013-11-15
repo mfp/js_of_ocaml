@@ -37,8 +37,7 @@ let uop op a = J.EUn(op,a)
 let var name = J.S {J.name;J.var=None}
 
 (* this is need to fake menhir while using --infer *)
-type hack = { _menhir_token: token}
-let _menhir_env = {_menhir_token = EOF Parse_info.zero }
+let _tok = EOF Parse_info.zero 
 
 %}
 
@@ -207,7 +206,7 @@ statement:
     (* - fail otherwise *)
     (* @@@@@@@@@ HACK @@@@@@@@@@ *)
 
-    match _menhir_env._menhir_token with
+    match _tok with
       | EOF _ -> s
       | T_RCURLY _ -> s
       | t ->
