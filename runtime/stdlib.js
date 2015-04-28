@@ -964,7 +964,9 @@ function caml_sys_get_argv () {
      && g.process.argv.length > 0) {
     var argv = g.process.argv
     //nodejs
-    main = argv[1];
+    //work around nw.js bug #1643, see
+    //https://github.com/nwjs/nw.js/issues/1643
+    main = argv[1] || "a.out";
     args = raw_array_sub(argv,2,argv.length - 2);
   }
 
