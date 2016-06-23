@@ -24,6 +24,7 @@ type (-'a, +'b) meth_callback
 
 module Unsafe = struct
   type any
+  type any_js_array = any
   external inject : 'a -> any = "%identity"
   external coerce : _ t -> _ t = "%identity"
 
@@ -51,6 +52,10 @@ module Unsafe = struct
 
   external callback : ('a -> 'b) -> ('c, 'a -> 'b) meth_callback = "%identity"
   external meth_callback : ('b -> 'a) -> ('b, 'a) meth_callback = "caml_js_wrap_meth_callback_unsafe"
+  external callback_with_arguments : (any_js_array -> 'b) -> ('c, any_js_array -> 'b) meth_callback =
+    "caml_js_wrap_callback_arguments"
+  external meth_callback_with_arguments : ('b -> any_js_array -> 'a) -> ('b, any_js_array -> 'a) meth_callback =
+    "caml_js_wrap_meth_callback_arguments"
 
   (* DEPRECATED *)
   external variable : string -> 'a = "caml_js_var"
